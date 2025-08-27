@@ -1,3 +1,4 @@
+@transaction
 Feature: Bank Transaction
     Tests pretaining to banking transactions like withdrawal, deposit
 

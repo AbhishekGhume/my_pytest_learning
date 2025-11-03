@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Location Search - Smart Place Finder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-6 shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-map-marker-alt text-3xl"></i>
+                    <h1 class="text-3xl font-bold">AI Location Search</h1>
+                </div>
+                <p class="text-blue-100">Powered by AI & N8N</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Search Section -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-2">Find Places with Natural Language</h2>
+                <p class="text-gray-600">Just describe what you're looking for and let AI do the rest!</p>
+            </div>
+            
+            <div class="max-w-2xl mx-auto">
+                <div class="flex flex-col space-y-4">
+                    <div class="relative">
+                        <input type="text" 
+                               id="searchQuery" 
+                               placeholder="e.g., 'best hotels near Pune with swimming pool' or 'temples near Karad'"
+                               class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg">
+                        <i class="fas fa-search absolute right-4 top-4 text-gray-400"></i>
+                    </div>
+                    
+                    <button onclick="searchPlaces()" 
+                            id="searchBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-300 transform hover:scale-105">
+                        <i class="fas fa-search mr-2"></i>
+                        Search Places
+                    </button>
+                </div>
+                
+                <!-- Example Queries -->
+                <div class="mt-6">
+                    <p class="text-sm text-gray-600 mb-3">Try these examples:</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="setQuery('best restaurants near Mumbai with outdoor seating')" 
+                                class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full transition">
+                            Restaurants in Mumbai
+                        </button>
+                        <button onclick="setQuery('temples near Pune')" 
+                                class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full transition">
+                            Temples near Pune
+                        </button>
+                        <button onclick="setQuery('hotels in Goa with beach view')" 
+                                class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full transition">
+                            Hotels in Goa
+                        </button>
+                        <button onclick="setQuery('hospitals near Karad')" 
+                                class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full transition">
+                            Hospitals near Karad
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="hidden text-center py-8">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-gray-600">AI is processing your query...</p>
+            <p class="text-sm text-gray-500 mt-2">This may take a few seconds</p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden">
+            <!-- Summary Card -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Search Results</h3>
+                    <div class="flex space-x-2">
+                        <button onclick="downloadCSV()" 
+                                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-download mr-2"></i>Download CSV
+                        </button>
+                        <button onclick="shareResults()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-share mr-2"></i>Share
+                        </button>
+                    </div>
+                </div>
+                <div id="summaryContent" class="text-gray-600"></div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div class="p-4 border-b bg-gray-50">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-semibold text-gray-800">Detailed Results</h4>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" 
+                                   id="tableSearch" 
+                                   placeholder="Filter results..." 
+                                   class="px-3 py-1 border rounded text-sm">
+                            <button onclick="toggleView()" 
+                                    class="text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-table mr-1"></i>Toggle View
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tableContainer" class="overflow-x-auto">
+                    <table id="resultsTable" class="w-full">
+                        <thead id="tableHead" class="bg-gray-100"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Analytics Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h4 class="text-lg font-semibold mb-4 text-gray-800">Rating Distribution</h4>
+                    <canvas id="ratingChart" width="400" height="200"></canvas>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h4 class="text-lg font-semibold mb-4 text-gray-800">Quick Stats</h4>
+                    <div id="quickStats" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <i class="fas fa-exclamation-triangle text-red-500 text-3xl mb-4"></i>
+            <h3 class="text-lg font-semibold text-red-800 mb-2">Something went wrong</h3>
+            <p id="errorMessage" class="text-red-600 mb-4"></p>
+            <button onclick="hideError()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                Try Again
+            </button>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2024 AI Location Search. Built with N8N, OpenAI & Google Maps API.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Configuration
+        const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook-test/location-search';
+        
+        let currentResults = null;
+        let currentCSVContent = null;
+
+        // Set example query
+        function setQuery(query) {
+            document.getElementById('searchQuery').value = query;
+        }
+
+        // Main search function
+        async function searchPlaces() {
+            const query = document.getElementById('searchQuery').value.trim();
+            
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            showLoading();
+            hideError();
+            hideResults();
+
+            try {
+                const response = await fetch(N8N_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const data = await response.json();
+                
+                hideLoading();
+
+                if (data.success) {
+                    currentResults = data.data;
+                    currentCSVContent = data.data.csvContent;
+                    displayResults(data.data);
+                } else {
+                    showError(data.message || 'Failed to fetch results');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('Network error. Please check your connection and try again.');
+                console.error('Search error:', error);
+            }
+        }
+
+        // Display results
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            const summaryContent = document.getElementById('summaryContent');
+            
+            // Show summary
+            summaryContent.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600">${data.results.length}</div>
+                        <div class="text-sm text-gray-600">Results Found</div>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-green-600">${data.summary.entity}</div>
+                        <div class="text-sm text-gray-600">Entity Type</div>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-purple-600">${data.summary.location}</div>
+                        <div class="text-sm text-gray-600">Location</div>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded-lg">
+                        <div class="text-2xl font-bold text-yellow-600">${data.summary.columns.length}</div>
+                        <div class="text-sm text-gray-600">Data Columns</div>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p class="text-sm"><strong>Query:</strong> "${data.summary.query}"</p>
+                    <p class="text-sm"><strong>Generated:</strong> ${new Date(data.summary.generatedAt).toLocaleString()}</p>
+                </div>
+            `;
+
+            // Create table
+            createResultsTable(data.results);
+            
+            // Create charts
+            createRatingChart(data.results);
+            createQuickStats(data.results);
+            
+            // Show results
+            resultsDiv.classList.remove('hidden');
+        }
+
+        // Create results table
+        function createResultsTable(results) {
+            const tableHead = document.getElementById('tableHead');
+            const tableBody = document.getElementById('tableBody');
+            
+            if (results.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="100%" class="text-center py-8 text-gray-500">No results found</td></tr>';
+                return;
+            }
+
+            // Create header
+            const headers = Object.keys(results[0]);
+            tableHead.innerHTML = `
+                <tr>
+                    ${headers.map(header => `<th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">${header}</th>`).join('')}
+                </tr>
+            `;
+
+            // Create body
+            tableBody.innerHTML = results.map(row => `
+                <tr class="border-t hover:bg-gray-50">
+                    ${headers.map(header => `<td class="px-4 py-3 text-sm text-gray-900">${row[header] || 'N/A'}</td>`).join('')}
+                </tr>
+            `).join('');
+
+            // Add search functionality
+            document.getElementById('tableSearch').addEventListener('input', filterTable);
+        }
+
+        // Filter table
+        function filterTable() {
+            const searchTerm = document.getElementById('tableSearch').value.toLowerCase();
+            const tableRows = document.getElementById('tableBody').getElementsByTagName('tr');
+            
+            Array.from(tableRows).forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+
+        // Create rating chart
+        function createRatingChart(results) {
+            const ctx = document.getElementById('ratingChart').getContext('2d');
+            
+            // Extract ratings
+            const ratings = results.map(item => {
+                const rating = item['Rating'] || item['rating'] || '';
+                const match = rating.match(/\((\d+\.?\d*)\)/);
+                return match ? parseFloat(match[1]) : null;
+            }).filter(r => r !== null);
+
+            if (ratings.length === 0) {
+                ctx.fillText('No rating data available', 50, 100);
+                return;
+            }
+
+            // Create rating distribution
+            const distribution = [0, 0, 0, 0, 0]; // 1-star, 2-star, 3-star, 4-star, 5-star
+            
+            ratings.forEach(rating => {
+                const index = Math.floor(rating) - 1;
+                if (index >= 0 && index < 5) {
+                    distribution[index]++;
+                }
+            });
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['1⭐', '2⭐', '3⭐', '4⭐', '5⭐'],
+                    datasets: [{
+                        label: 'Number of Places',
+                        data: distribution,
+                        backgroundColor: [
+                            'rgba(239, 68, 68, 0.6)',
+                            'rgba(245, 158, 11, 0.6)',
+                            'rgba(251, 191, 36, 0.6)',
+                            'rgba(34, 197, 94, 0.6)',
+                            'rgba(16, 185, 129, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(251, 191, 36, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(16, 185, 129, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Create quick stats
+        function createQuickStats(results) {
+            const quickStats = document.getElementById('quickStats');
+            
+            // Calculate stats
+            const totalPlaces = results.length;
+            const ratings = results.map(item => {
+                const rating = item['Rating'] || item['rating'] || '';
+                const match = rating.match(/\((\d+\.?\d*)\)/);
+                return match ? parseFloat(match[1]) : null;
+            }).filter(r => r !== null);
+            
+            const avgRating = ratings.length > 0 ? 
+                (ratings.reduce((sum, r) => sum + r, 0) / ratings.length).toFixed(1) : 'N/A';
+            
+            const highRated = ratings.filter(r => r >= 4).length;
+            
+            // Count open places
+            const openNow = results.filter(item => {
+                const hours = item['Opening Hours'] || item['opening_hours'] || '';
+                return hours.toLowerCase().includes('open');
+            }).length;
+
+            quickStats.innerHTML = `
+                <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div>
+                        <div class="text-lg font-bold text-blue-600">${totalPlaces}</div>
+                        <div class="text-sm text-gray-600">Total Places</div>
+                    </div>
+                    <i class="fas fa-map-marker-alt text-blue-500 text-xl"></i>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div>
+                        <div class="text-lg font-bold text-green-600">${avgRating}⭐</div>
+                        <div class="text-sm text-gray-600">Avg Rating</div>
+                    </div>
+                    <i class="fas fa-star text-green-500 text-xl"></i>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                    <div>
+                        <div class="text-lg font-bold text-yellow-600">${highRated}</div>
+                        <div class="text-sm text-gray-600">4+ Star Places</div>
+                    </div>
+                    <i class="fas fa-trophy text-yellow-500 text-xl"></i>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                    <div>
+                        <div class="text-lg font-bold text-purple-600">${openNow}</div>
+                        <div class="text-sm text-gray-600">Open Now</div>
+                    </div>
+                    <i class="fas fa-clock text-purple-500 text-xl"></i>
+                </div>
+            `;
+        }
+
+        // Download CSV
+        function downloadCSV() {
+            if (!currentCSVContent) {
+                alert('No data available for download');
+                return;
+            }
+
+            const blob = new Blob([currentCSVContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `search-results-${Date.now()}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Share results
+        function shareResults() {
+            if (!currentResults) {
+                alert('No results to share');
+                return;
+            }
+
+            const shareText = `Found ${currentResults.results.length} ${currentResults.summary.entity} in ${currentResults.summary.location}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: 'AI Location Search Results',
+                    text: shareText,
+                    url: window.location.href
+                });
+            } else {
+                // Fallback - copy to clipboard
+                navigator.clipboard.writeText(shareText).then(() => {
+                    alert('Results summary copied to clipboard!');
+                });
+            }
+        }
+
+        // Toggle view (could be expanded for different view modes)
+        function toggleView() {
+            // This could be expanded to switch between table, card, or map views
+            alert('Different view modes coming soon!');
+        }
+
+        // Show/hide functions
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('searchBtn').disabled = true;
+            document.getElementById('searchBtn').innerHTML = '<div class="loading-spinner inline-block mr-2"></div>Searching...';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('searchBtn').disabled = false;
+            document.getElementById('searchBtn').innerHTML = '<i class="fas fa-search mr-2"></i>Search Places';
+        }
+
+        function showError(message) {
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.add('hidden');
+        }
+
+        function hideResults() {
+            document.getElementById('results').classList.add('hidden');
+        }
+
+        // Enter key support
+        document.getElementById('searchQuery').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPlaces();
+            }
+        });
+
+        // Auto-focus on search input
+        window.addEventListener('load', function() {
+            document.getElementById('searchQuery').focus();
+        });
+
+        // Demo mode with sample data (for testing without backend)
+        function loadDemoData() {
+            const demoData = {
+                summary: {
+                    query: "best hotels near Pune",
+                    entity: "hotels",
+                    location: "Pune",
+                    totalResults: 5,
+                    generatedAt: new Date().toISOString(),
+                    columns: ["Hotel Name", "Address", "Rating", "Price Range"]
+                },
+                results: [
+                    {
+                        "Sr. No": 1,
+                        "Hotel Name": "The Westin Pune Koregaon Park",
+                        "Address": "36/3-B, Koregaon Park Annexe, Pune",
+                        "Rating": "⭐⭐⭐⭐⭐ (4.5)",
+                        "Price Range": "$$",
+                        "Contact": "+91 20 6730 6789"
+                    },
+                    {
+                        "Sr. No": 2,
+                        "Hotel Name": "Conrad Pune",
+                        "Address": "7, Mangal, Airport Rd, Pune",
+                        "Rating": "⭐⭐⭐⭐⭐ (4.4)",
+                        "Price Range": "$$",
+                        "Contact": "+91 20 6773 5555"
+                    },
+                    {
+                        "Sr. No": 3,
+                        "Hotel Name": "JW Marriott Hotel Pune",
+                        "Address": "Senapati Bapat Road, Pune",
+                        "Rating": "⭐⭐⭐⭐⭐ (4.3)",
+                        "Price Range": "$$",
+                        "Contact": "+91 20 6683 3333"
+                    },
+                    {
+                        "Sr. No": 4,
+                        "Hotel Name": "Hyatt Regency Pune",
+                        "Address": "Weikfield IT Citi Info Park, Nagar Road, Pune",
+                        "Rating": "⭐⭐⭐⭐ (4.2)",
+                        "Price Range": "$$",
+                        "Contact": "+91 20 6645 1234"
+                    },
+                    {
+                        "Sr. No": 5,
+                        "Hotel Name": "Radisson Blu Hotel Pune Kharadi",
+                        "Address": "Kharadi, Pune",
+                        "Rating": "⭐⭐⭐⭐ (4.0)",
+                        "Price Range": "$$",
+                        "Contact": "+91 20 6730 0000"
+                    }
+                ],
+                csvContent: "Sr. No,Hotel Name,Address,Rating,Price Range,Contact\n1,\"The Westin Pune Koregaon Park\",\"36/3-B, Koregaon Park Annexe, Pune\",\"⭐⭐⭐⭐⭐ (4.5)\",\"$$\",\"+91 20 6730 6789\""
+            };
+            
+            currentResults = demoData;
+            currentCSVContent = demoData.csvContent;
+            displayResults(demoData);
+        }
+
+        // Uncomment the line below to test with demo data
+        // setTimeout(loadDemoData, 1000);
+    </script>
+</body>
+</html>
+
+
+
